@@ -1190,7 +1190,7 @@ bool RuneSpell::executeUse(Player* player, Item* item, const Position&, Thing* t
 		var.pos = toPosition;
 	}
 
-	if (!internalCastSpell(player, var, isHotkey)) {
+	if (!internalCastSpell(player, var, isHotkey, item)) {
 		return false;
 	}
 
@@ -1213,7 +1213,7 @@ bool RuneSpell::castSpell(Creature* creature)
 	LuaVariant var;
 	var.type = VARIANT_NUMBER;
 	var.number = creature->getID();
-	return internalCastSpell(creature, var, false);
+	return internalCastSpell(creature, var, false, nullptr);
 }
 
 bool RuneSpell::castSpell(Creature* creature, Creature* target)
@@ -1221,23 +1221,23 @@ bool RuneSpell::castSpell(Creature* creature, Creature* target)
 	LuaVariant var;
 	var.type = VARIANT_NUMBER;
 	var.number = target->getID();
-	return internalCastSpell(creature, var, false);
+	return internalCastSpell(creature, var, false, nullptr);
 }
 
-bool RuneSpell::internalCastSpell(Creature* creature, const LuaVariant& var, bool isHotkey)
+bool RuneSpell::internalCastSpell(Creature* creature, const LuaVariant& var, bool isHotkey, Item* item)
 {
 	bool result;
 	if (scripted) {
-		result = executeCastSpell(creature, var, isHotkey);
+		result = executeCastSpell(creature, var, isHotkey, item);
 	} else {
 		result = false;
 	}
 	return result;
 }
 
-bool RuneSpell::executeCastSpell(Creature* creature, const LuaVariant& var, bool isHotkey)
+bool RuneSpell::executeCastSpell(Creature* creature, const LuaVariant& var, bool isHotkey, Item* item)
 {
-	//onCastSpell(creature, var, isHotkey)
+	//onCastSpell(creature, var, isHotkey, item)
 	if (!scriptInterface->reserveScriptEnv()) {
 		std::cout << "[Error - RuneSpell::executeCastSpell] Call stack overflow" << std::endl;
 		return false;
@@ -1256,6 +1256,9 @@ bool RuneSpell::executeCastSpell(Creature* creature, const LuaVariant& var, bool
 	LuaScriptInterface::pushVariant(L, var);
 
 	LuaScriptInterface::pushBoolean(L, isHotkey);
+	
+	LuaScriptInterface::pushUserdata<Item>(L, item);
+	LuaScriptInterface::setItemMetatable(L, -1, item);	
 
 	return scriptInterface->callFunction(3);
 }

@@ -369,7 +369,7 @@ class InstantSpell final : public TalkAction, public Spell
 	private:
 		std::string getScriptEventName() const override;
 
-		bool internalCastSpell(Creature* creature, const LuaVariant& var);
+		bool internalCastSpell(Creature* creature, const LuaVariant& var, Item* item);
 
 		bool needDirection = false;
 		bool hasParam = false;
@@ -399,7 +399,7 @@ class RuneSpell final : public Action, public Spell
 		bool castSpell(Creature* creature, Creature* target) override;
 
 		//scripting
-		bool executeCastSpell(Creature* creature, const LuaVariant& var, bool isHotkey);
+		bool executeCastSpell(Creature* creature, const LuaVariant& var, bool isHotkey, Item* item);
 
 		bool isInstant() const override {
 			return false;
@@ -423,7 +423,7 @@ class RuneSpell final : public Action, public Spell
 	private:
 		std::string getScriptEventName() const override;
 
-		bool internalCastSpell(Creature* creature, const LuaVariant& var, bool isHotkey);
+		bool internalCastSpell(Creature* creature, const LuaVariant& var, bool isHotkey, Item* item);
 
 		uint16_t runeId = 0;
 		uint32_t charges = 0;
