@@ -1260,5 +1260,5 @@ bool RuneSpell::executeCastSpell(Creature* creature, const LuaVariant& var, bool
 	LuaScriptInterface::pushUserdata<Item>(L, item);
 	LuaScriptInterface::setItemMetatable(L, -1, item);	
 
-	return scriptInterface->callFunction(3);
+	return scriptInterface->callFunction(4);
 }
