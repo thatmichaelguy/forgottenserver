@@ -7,10 +7,8 @@
 #include "server.h"
 #include "scheduler.h"
 #include "configmanager.h"
-#include "ban.h"
 
 extern ConfigManager g_config;
-Ban g_bans;
 
 ServiceManager::~ServiceManager()
 {
@@ -93,8 +91,7 @@ void ServicePort::onAccept(Connection_ptr connection, const boost::system::error
 			return;
 		}
 
-		auto remote_ip = connection->getIP();
-		if (remote_ip != 0 && g_bans.acceptConnection(remote_ip)) {
+		if (connection->getIP()) {if (connection->getIP()) {
 			Service_ptr service = services.front();
 			if (service->is_single_socket()) {
 				connection->accept(service->make_protocol(connection));

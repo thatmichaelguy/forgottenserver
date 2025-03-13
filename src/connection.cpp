@@ -9,8 +9,11 @@
 #include "protocol.h"
 #include "scheduler.h"
 #include "server.h"
+#include "ban.h"
 
 extern ConfigManager g_config;
+
+Ban g_bans;
 
 Connection_ptr ConnectionManager::createConnection(boost::asio::io_service& io_service, ConstServicePort_ptr servicePort)
 {
@@ -136,7 +139,70 @@ void Connection::parseHeader(const boost::system::error_code& error)
 		timeConnected = time(nullptr);
 		packetsSent = 0;
 	}
-
+	// only the first packet may contain the proxy identification
+	if (!receivedFirstHeader) {
+		receivedFirstHeader = true;
+		if (size == 0xFFFEu) {
+			// OTCv8 proxy, 6 bytes packet
+			// Starts from 2 bytes 0xFFFEu, then 4 bytes with IP uint32_t
+			auto self(shared_from_this());
+			readTimer.expires_from_now(boost::posix_time::seconds(CONNECTION_READ_TIMEOUT));
+			readTimer.async_wait(std::bind(&Connection::handleTimeout, std::weak_ptr<Connection>(shared_from_this()), std::placeholders::_1));
+			boost::asio::async_read(socket, boost::asio::buffer(msg.getBuffer(), 4), [&, self](const boost::system::error_code& errorCode, size_t) {
+				std::lock_guard<std::recursive_mutex> lockClass(connectionLock);
+				readTimer.cancel();
+				if (errorCode) {
+					std::cout << "[Network error - Connection::parseHeader]: "
+						<< "Error loading from OTCv8 proxy" << std::endl;
+					close(FORCE_CLOSE);
+					return;
+				}
+				uint8_t* msgBuffer = msg.getBuffer();
+				realIP = *(uint32_t*)msgBuffer;
+				
+				if (!g_bans.acceptConnection(getIP())) {
+					close(FORCE_CLOSE);
+					return;
+				}
+				accept();
+				});
+			return;
+		}
+		else if (size == 0x0A0Du) {
+			// HAProxy send-proxy-v2, 26 bytes packet
+			// Starts from 2 bytes 0x0A0Du, IP uint32_t starts from 17th byte
+			// https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt - Read from Section 2.2 (Binary header format version 2)
+			auto self(shared_from_this());
+			readTimer.expires_from_now(boost::posix_time::seconds(CONNECTION_READ_TIMEOUT));
+			readTimer.async_wait(std::bind(&Connection::handleTimeout, std::weak_ptr<Connection>(shared_from_this()), std::placeholders::_1));
+			boost::asio::async_read(socket, boost::asio::buffer(msg.getBuffer(), 26), [&, self](const boost::system::error_code& errorCode, size_t) {
+				std::lock_guard<std::recursive_mutex> lockClass(connectionLock);
+				readTimer.cancel();
+				if (errorCode) {
+					std::cout << "[Network error - Connection::parseHeader]: "
+						<< "Error loading from HAProxy" << std::endl;
+					close(FORCE_CLOSE);
+					return;
+				}
+				uint8_t* msgBuffer = msg.getBuffer();
+				realIP = *(uint32_t*)&msgBuffer[14];
+				
+				if (!g_bans.acceptConnection(getIP())) {
+					close(FORCE_CLOSE);
+					return;
+				}
+				accept();
+				});
+			return;
+		}
+		else {
+			if (!g_bans.acceptConnection(getIP())) {
+				close(FORCE_CLOSE);
+				return;
+			}
+		}
+	}
+  
 	uint16_t size = msg.getLengthHeader();
 	if (size == 0 || size >= NETWORKMESSAGE_MAXSIZE - 16) {
 		close(FORCE_CLOSE);
@@ -253,6 +319,10 @@ void Connection::internalSend(const OutputMessage_ptr& msg)
 
 uint32_t Connection::getIP()
 {
+	if (realIP > 0) {
+		return realIP;
+	}
+  
 	std::lock_guard<std::recursive_mutex> lockClass(connectionLock);
 
 	// IP-address is expressed in network byte order

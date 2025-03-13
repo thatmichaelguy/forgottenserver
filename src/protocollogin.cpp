@@ -108,6 +108,19 @@ void ProtocolLogin::getCharacterList(const std::string& accountName, const std::
 		output->add<uint32_t>(account.premiumEndsAt);
 	}
 
+	// Add list of proxies
+ 	const ProxyList& proxies = IOLoginData::getProxies();
+ 	const uint8_t proxyCount = proxies.size();
+ 	if (proxyCount > 0) {
+ 		output->addByte(0x6E);
+ 		output->addByte(proxyCount);
+ 		for (const Proxy& proxy : proxies) {
+ 			output->addString(proxy.host);
+ 			output->add<uint16_t>(proxy.port);
+ 			output->add<uint16_t>(proxy.priority);
+ 		}
+ 	}
+  
 	send(output);
 
 	disconnect();

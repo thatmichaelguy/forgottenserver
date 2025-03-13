@@ -8,7 +8,21 @@
 #include "player.h"
 #include "database.h"
 
+struct Proxy
+ {
+ 	Proxy(std::string host, uint16_t port, uint16_t priority)
+ 		: host(std::move(host))
+ 		, port(port)
+ 		, priority(priority)
+ 	{
+ 	}
+ 	std::string host;
+ 	uint16_t port;
+ 	uint16_t priority;
+ };
+
 using ItemBlockList = std::list<std::pair<int32_t, Item*>>;
+using ProxyList = std::vector<Proxy>;
 
 class IOLoginData
 {
@@ -43,6 +57,8 @@ class IOLoginData
 
 		static void updatePremiumTime(uint32_t accountId, time_t endTime);
 
+    static const ProxyList getProxies();
+    
 	private:
 		using ItemMap = std::map<uint32_t, std::pair<Item*, uint32_t>>;
 

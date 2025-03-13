@@ -972,3 +972,20 @@ void IOLoginData::updatePremiumTime(uint32_t accountId, time_t endTime)
 {
 	Database::getInstance().executeQuery(fmt::format("UPDATE `accounts` SET `premium_ends_at` = {:d} WHERE `id` = {:d}", endTime, accountId));
 }
+
+const ProxyList IOLoginData::getProxies()
+ {
+ 	ProxyList proxies;
+ 	DBResult_ptr result = Database::getInstance().storeQuery("SELECT `host`, `port`, `priority` FROM `proxies` WHERE `disabled` = 0");
+ 	if (!result) {
+ 		return proxies;
+ 	}
+ 	do {
+ 		proxies.emplace_back(
+ 			result->getString("host"),
+ 			result->getNumber<uint16_t>("port"),
+ 			result->getNumber<uint16_t>("priority")
+ 		);
+ 	} while (result->next());
+ 	return proxies;
+ }
